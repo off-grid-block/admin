@@ -1,8 +1,9 @@
-# ************Edited Beginning************
+# #########################################
 # File created for Yale research
 #     by Ashlin, Minto, Athul Antony
 # This is for msp agent implementation
-# ************Edited End******************
+# ########################################
+
 import base64
 import argparse
 import asyncio
@@ -75,16 +76,14 @@ async def on_startup(app: web.Application):
 
 async def handle_create_invitation(request):
     global agent
-    log_status("Create invitation has been called !!")
-
+    log_status("Create invitation has been called")
     connection = await agent.admin_POST("/connections/create-invitation")
     agent.connection_id = connection["connection_id"]
     agent._connection_ready = asyncio.Future()
 
     log_json(connection, label="Invitation response:")
-    log_msg("*****************")
     log_msg(json.dumps(connection["invitation"]), label="Invitation:", color=None)
-    log_msg("*****************")
+   
 
     return web.json_response(connection["invitation"])
 
@@ -99,11 +98,14 @@ async def handle_verify_proof(request):
     attributes_asked    = {}
     data                = await request.json()
 
-    #Check if any attribute not there.
+    # Check if any attribute not there.
+    
     for element in ['proof_attr','connection_id']:
         if element not in data:
             return web.json_response({"status" : "Attribute missing"})
-    #Check if any attribute has not value.
+            
+    # Check if any attribute has not value.
+    
     if (data['proof_attr']==None or data['proof_attr']=='') or (data['connection_id']==None or data['connection_id']==''):
         return web.json_response({"status" : "Enter valid details"})
 
@@ -117,7 +119,8 @@ async def handle_verify_proof(request):
             }
         )
 
-    # Checking if prdicate is given or not
+    # Checking if predicate is given or not 
+    
     if ('req_predicate' not in data)==True:
         temp_req = {}
     elif data['req_predicate']==None or data['req_predicate']=='' or (not data['req_predicate']):
@@ -125,7 +128,8 @@ async def handle_verify_proof(request):
     else:
         temp_req = { 'predicate1_referent' : data['req_predicate'] }
 
-    # Cheching if issuer did given or not
+    # Checking if the issuer did is given or not
+    
     if ('issuer_did_list' in data)==True:
         log_msg("Issuer did has been given as input!!")
         issuer_did_list = data['issuer_did_list']
@@ -142,15 +146,8 @@ async def handle_verify_proof(request):
         },
         "requested_predicates" : temp_req
     }
- 
-    log_msg("++++++++++++++++++++++++++++++++++++++++++")
-    log_msg("++++++++++++++++++++++++++++++++++++++++++")
-    log_msg("++++++++++++++++++++++++++++++++++++++++++")
-    log_msg(indy_proof_request)
-    log_msg("++++++++++++++++++++++++++++++++++++++++++")
-    log_msg("++++++++++++++++++++++++++++++++++++++++++")
-    log_msg("++++++++++++++++++++++++++++++++++++++++++")
-
+    
+    log_msg("Indy Proof Request:",indy_proof_request)
     proof_request_web_request = {
         "connection_id": connection_id,
         "proof_request": indy_proof_request
@@ -168,9 +165,6 @@ async def handle_verify_proof(request):
 
     proof_event = asyncio.Event()
     await proof_event.wait()
-
-    log_status("Verification of proof has been called !!")
-
     presentation_exchange_id = proof_message["presentation_exchange_id"]
     try:
         proof = await agent.admin_POST(
@@ -210,34 +204,26 @@ async def handle_verify_proof(request):
         })   
 
 async def handle_verify_signature(request):
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log_status("Verify signature has been called !!")
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
     global agent
     global pool_handle
-
-    # This is the starting section for getting  the pool handle
+    
+    log_status("Verify signature has been called ")
     pool_data = await agent.admin_POST("/connections/open-pool", {
         "pool_handle" : pool_handle
     })
-    print("i have reached here!!")
-    print(pool_data)
+    
     pool_handle     = pool_data['pool_handle']
-
-
-    print("i have reached the extreme end")
-    # This is the ending section for getting  the pool handle
-
     data            = await request.json()
     resp            = {}
 
-    #Check if any attribute not there.
+    # Check if any attribute is not present
+    
     for element in ['message','their_did','signature']:
         if element not in data:
             return web.json_response({"status" : "Attribute missing"})
-    #Check if any attribute has not value.
+            
+    # Check if any attribute has no value
+    
     if (data['message']==None or data['message']=='') or (data['their_did']==None or data['their_did']=='') or (data['signature']==None or data['signature']==''):
         return web.json_response({"status" : "Enter valid details"})
 
@@ -245,9 +231,6 @@ async def handle_verify_signature(request):
     their_did       = data['their_did']
     signature       = data['signature']
 
-    print("message : "+message)
-    print("their_did : "+their_did)
-    print("signature : "+signature)
 
     try:
         temp=signature.encode('iso-8859-15')
