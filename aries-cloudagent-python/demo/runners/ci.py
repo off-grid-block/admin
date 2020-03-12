@@ -1,8 +1,8 @@
-# ************Edited Beginning************
+# ############################################################
 # File created for Yale research
 #     by Ashlin, Minto, Athul Antony
 # This file is for communicating with the credential issuer UI 
-# ************Edited End******************
+# ############################################################
 import argparse
 import asyncio
 import json
@@ -60,25 +60,23 @@ class CredentialIssuerAgent(DemoAgent):
         global connection_list
         if message["connection_id"] == self.connection_id:
             if message["state"] == "active" and not self._connection_ready.done():
-                self.log("Connected")
-                self.log("========================")
-                self.log(message)
                 connection_list.append({
                     "their_label"   : message['their_label'],
                     "connection_id" : message['connection_id']
                 })
-                self.log("========================")
                 self._connection_ready.set_result(True)
+                
                 # Sending a message requesting the verkey and did
                 # Start here
+                
                 msg= {
                     "status" : "Requesting verkey and did"
                 }
-                log_status("Putting did and verkey into the ledger")
                 await agent.admin_POST(
                     f"/connections/{self.connection_id}/send-message",
                     {"content": json.dumps(msg)},
                 )
+                
                 # Sending a message requesting the verkey and did
                 # Ends here
 
@@ -88,15 +86,17 @@ class CredentialIssuerAgent(DemoAgent):
 
     async def handle_basicmessages(self, message):
         try:
-        # Putting the verkey using did into the ledger
+        # Putting the verkey into the ledger using did 
         # Start here
+        
             msg=json.loads(message["content"])
             if "status" in msg:
                 if msg['status'] == "Sending verkey and did":
                     await putKeyToLedger(msg['signing_did'], msg['signing_vk'])
         except:
             self.log("Received message:", message["content"])
-        # Putting the verkey using did into the ledger
+            
+        # Putting the verkey into the ledger using did
         # Ends here
 
 async def handle_create_invitation(request):
@@ -104,19 +104,22 @@ async def handle_create_invitation(request):
     connection = await agent.admin_POST("/connections/create-invitation")
     agent._connection_ready=asyncio.Future()
     agent.connection_id = connection["connection_id"]
-    log_msg("Invitation has been created !!")
     return web.json_response(connection["invitation"])
 
 async def handle_create_schema_credential_definition(request):
     global agent
     global credDefIdList
     data                = await request.json()
+    
     # Check if data is empty or has the values
+    
     if "schema_name" not in data:
         return web.json_response({"status" : "Schema name needed"})
     if "attributes" not in data:
         return web.json_response({"status" : "Attributes needed"})
+        
     # Schema name and attributes input validation
+    
     if data['schema_name']=='' or data['schema_name']==None:
         return web.json_response({"status" : "Enter a valid schema name"})
     if data['attributes']=='' or data['attributes']==None:
@@ -138,10 +141,7 @@ async def handle_create_schema_credential_definition(request):
         schema_name, version, attr_list
     )
 
-    log_msg("schema has been created !!")
-    log_msg("Schema and Credential definition has been created !!")
-    log_msg("Schema id : ", schema_id)
-    log_msg("Credential definition id : ", credential_definition_id)
+ 
 
     credDefIdList.append({
         "schema_name" : schema_name,
@@ -161,13 +161,16 @@ async def handle_send_credential_offer(request):
     data = await request.json()
 
     # Check if data is empty
+    
     if 'credential_definition_id' not in data:
         return web.json_response({"status" : "Credential definition id needed"})
     if 'attr_data' not in data:
         return web.json_response({"status" : "Attribute data needed"})
     if 'connection_id' not in data:
         return web.json_response({"status" : "Connection id needed"})
+        
     # Credential definition id, Attributes, Connection id input validation
+    
     if data['credential_definition_id']=='' or data['credential_definition_id']==None:
         return web.json_response({"status" : "Enter a valid credential definition id"})
     if data['attr_data']=='' or data['attr_data']==None:
@@ -229,8 +232,7 @@ async def handle_issue_credential(request):
                 "credential_preview": cred_preview,
             },
         )
-        log_status("Credential has been issued!!")
-        log_msg(res['credential'])
+      
 
         return web.json_response({
             "status" : True
@@ -240,8 +242,6 @@ async def handle_issue_credential(request):
 async def handle_get_connection_list(request):
     global agent
     global connection_list
-    log_status("Get connections has been called !!")
-    # connectionList = await agent.admin_GET(f"/connections")
     return web.json_response({"connectionList" : connection_list})
 
 async def handle_get_cred_def_list(request):
@@ -249,12 +249,6 @@ async def handle_get_cred_def_list(request):
     return web.json_response({"credDefIdList" : credDefIdList})
 
 async def putKeyToLedger(signing_did:str=None, signing_vk:str=None):
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log_status("Putting verification key to the ledger")
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
     global agent
 
     res=await agent.admin_POST("/connections/put-key-ledger", {
@@ -264,11 +258,6 @@ async def putKeyToLedger(signing_did:str=None, signing_vk:str=None):
     })
     
     if res['status']=="true":
-        log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        log_status("Verification key has been put into the ledger!!")
-        log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
         return web.json_response({"status" : True})
     else:
         return web.json_response({"status" : False})
@@ -288,11 +277,7 @@ async def main(start_port: int, show_timing: bool = False):
         await agent.register_did()
         with log_timer("Startup duration:"):
             await agent.start_process()
-        log_msg("Admin url is at:", agent.admin_url)
-        log_msg("Endpoint url is at:", agent.endpoint)
-
         app = web.Application()
-
         app.add_routes([
             web.get('/create_invitation', handle_create_invitation),
             web.post('/create_schema_cred_def', handle_create_schema_credential_definition),
