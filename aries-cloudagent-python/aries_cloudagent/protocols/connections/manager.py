@@ -181,10 +181,9 @@ class ConnectionManager:
     async def receive_invitation(
         self,
         invitation: ConnectionInvitation,
-        # ************Edited Beginning***********
-        # This code is for common did as pairwise did
+
+        # Using signing did as pairwise did
         signing_did: str = None,
-        # ************Edited End******************
         their_role: str = None,
         accept: str = None,
         alias: str = None,
@@ -221,10 +220,10 @@ class ConnectionManager:
             state=ConnectionRecord.STATE_INVITATION,
             accept=accept,
             alias=alias,
-            # ************Edited Beginning***********
-            # This code is for common did as pairwise did
+        
+            # Using Signing did as pairwise did
             my_did=signing_did,
-            # ************Edited End******************
+         
         )
 
         await connection.save(
