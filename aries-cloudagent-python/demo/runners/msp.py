@@ -148,6 +148,7 @@ async def handle_verify_proof(request):
     }
     
     log_msg("Indy Proof Request:",indy_proof_request)
+    
     proof_request_web_request = {
         "connection_id": connection_id,
         "proof_request": indy_proof_request
@@ -207,7 +208,6 @@ async def handle_verify_signature(request):
     global agent
     global pool_handle
     
-    log_status("Verify signature has been called ")
     pool_data = await agent.admin_POST("/connections/open-pool", {
         "pool_handle" : pool_handle
     })
