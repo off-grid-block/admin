@@ -1,6 +1,4 @@
 # ############################################################
-# File created for Yale research
-#     by Ashlin, Minto, Athul Antony
 # This file is for communicating with the credential issuer UI 
 # ############################################################
 import argparse
