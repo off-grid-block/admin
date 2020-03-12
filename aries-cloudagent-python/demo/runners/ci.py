@@ -98,6 +98,8 @@ class CredentialIssuerAgent(DemoAgent):
             
         # Putting the verkey into the ledger using did
         # Ends here
+        
+# Create Invitation for the Issuer Agent
 
 async def handle_create_invitation(request):
     global agent
@@ -105,6 +107,8 @@ async def handle_create_invitation(request):
     agent._connection_ready=asyncio.Future()
     agent.connection_id = connection["connection_id"]
     return web.json_response(connection["invitation"])
+    
+# Create Schema and Credential Definition
 
 async def handle_create_schema_credential_definition(request):
     global agent
@@ -153,6 +157,8 @@ async def handle_create_schema_credential_definition(request):
         "schema_id"                : schema_id,
         "credential_definition_id" : credential_definition_id
     })
+    
+# Sending Credential offer to the Client Agent 
 
 async def handle_send_credential_offer(request):
     global agent
@@ -164,8 +170,10 @@ async def handle_send_credential_offer(request):
     
     if 'credential_definition_id' not in data:
         return web.json_response({"status" : "Credential definition id needed"})
+        
     if 'attr_data' not in data:
         return web.json_response({"status" : "Attribute data needed"})
+        
     if 'connection_id' not in data:
         return web.json_response({"status" : "Connection id needed"})
         
@@ -173,8 +181,10 @@ async def handle_send_credential_offer(request):
     
     if data['credential_definition_id']=='' or data['credential_definition_id']==None:
         return web.json_response({"status" : "Enter a valid credential definition id"})
+        
     if data['attr_data']=='' or data['attr_data']==None:
         return web.json_response({"status" : "Enter valid attibutes"})
+        
     if data['connection_id']=='' or data['connection_id']==None:
         return web.json_response({"status" : "Enter a valid connection id"})
 
@@ -202,6 +212,8 @@ async def handle_send_credential_offer(request):
     await agent.admin_POST("/issue-credential/send-offer", offer_request)
 
     return web.json_response({"status" : True})
+    
+# Issuing Credential to the Client Agent 
 
 async def handle_issue_credential(request):
     global agent
@@ -238,15 +250,21 @@ async def handle_issue_credential(request):
             "status" : True
             }
         )
+        
+# Obtaining the list of Connections
 
 async def handle_get_connection_list(request):
     global agent
     global connection_list
     return web.json_response({"connectionList" : connection_list})
+    
+# Obtaining the list of Credential Definition
 
 async def handle_get_cred_def_list(request):
     global credDefIdList
     return web.json_response({"credDefIdList" : credDefIdList})
+    
+# Place the key to the Indy Ledger
 
 async def putKeyToLedger(signing_did:str=None, signing_vk:str=None):
     global agent
