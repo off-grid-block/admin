@@ -1,6 +1,4 @@
 # #########################################
-# File created for Yale research
-#     by Ashlin, Minto, Athul Antony
 # This is for msp agent implementation
 # ########################################
 
