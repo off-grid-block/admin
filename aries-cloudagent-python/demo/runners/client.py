@@ -1,7 +1,5 @@
 # #########################################
-# File created for Yale research
-#     by Ashlin, Minto, Athul Antony
-# This is for multple client implementation
+# This is for multiple client implementation
 # #########################################
 import base64
 import asyncio
