@@ -1,8 +1,8 @@
-# ************Edited Beginning************
+# #########################################
 # File created for Yale research
 #     by Ashlin, Minto, Athul Antony
 # This is for multple client implementation
-# ************Edited End******************
+# #########################################
 import base64
 import asyncio
 import argparse
@@ -68,68 +68,48 @@ class ClientAgent(DemoAgent):
     async def handle_connections(self, message):
         if message["connection_id"] == self.connection_id:
             if message["state"] == "active" and not self._connection_ready.done():
-                self.log("Connected")
                 self._connection_ready.set_result(True)
 
     async def handle_issue_credential(self, message):
         state = message["state"]
         credential_exchange_id = message["credential_exchange_id"]
         prev_state = self.cred_state.get(credential_exchange_id)
+        
         if prev_state == state:
             return  # ignore
         self.cred_state[credential_exchange_id] = state
-
-        self.log(
-            "Credential: state =",
-            state,
-            ", credential_exchange_id =",
-            credential_exchange_id,
-        )
-
+        
+        # After receiving credential offer, send credential request
         if state == "offer_received":
-            log_status("#15 After receiving credential offer, send credential request")
             await self.admin_POST(
                 "/issue-credential/records/" f"{credential_exchange_id}/send-request"
             )
-
+            
+       #Storing Credential ID in the Wallet
         elif state == "credential_acked":
-            self.log("Stored credential {cred_id} in wallet")
+     
             cred_id = message["credential_id"]
-            log_status(f"#18.1 Stored credential {cred_id} in wallet")
             resp = await self.admin_GET(f"/credential/{cred_id}")
             log_json(resp, label="Credential details:")
             log_json(
                 message["credential_request_metadata"],
                 label="Credential request metadata:",
             )
-            self.log("credential_id", message["credential_id"])
-            self.log("credential_definition_id", message["credential_definition_id"])
-            self.log("schema_id", message["schema_id"])
-
+    
+   # Handling Proof request from the Verifier Agent
     async def handle_present_proof(self, message):
         state = message["state"]
         presentation_exchange_id = message["presentation_exchange_id"]
         presentation_request = message["presentation_request"]
 
-        log_msg(
-            "Presentation: state =",
-            state,
-            ", presentation_exchange_id =",
-            presentation_exchange_id,
-        )
-
         if state == "request_received":
-            log_status(
-                "#24 Query for credentials in the wallet that satisfy the proof request"
-            )
 
-            # include self-attested attributes (not included in credentials)
             credentials_by_reft = {}
             revealed = {}
             self_attested = {}
             predicates = {}
 
-            # select credentials to provide for the proof
+            # Select credentials to provide for the proof
             credentials = await self.admin_GET(
                 f"/present-proof/records/{presentation_exchange_id}/credentials"
             )
@@ -159,14 +139,14 @@ class ClientAgent(DemoAgent):
                         "revealed": True,
                     }
 
-            log_status("#25 Generate the proof")
+            # Generate the Proof based on the Proof Request
             request = {
                 "requested_predicates": predicates,
                 "requested_attributes": revealed,
                 "self_attested_attributes": self_attested,
             }
 
-            log_status("#26 Send the proof to X")
+            # Sending Proof back to the Verifier Agent
             await self.admin_POST(
                 (
                     "/present-proof/records/"
@@ -189,7 +169,7 @@ class ClientAgent(DemoAgent):
                         "signing_did" : signing_did,
                         "signing_vk" : signing_vk
                     }
-                log_status("Sending verkey and did")
+                # Sending verkey and did
                 await agent.admin_POST(
                     f"/connections/{self.connection_id}/send-message",
                     {"content": json.dumps(msg)},
@@ -198,19 +178,19 @@ class ClientAgent(DemoAgent):
         # Ends here
         except:
             self.log("Received message:", message["content"])
-
+            
+# Obtaining the Client Name
 async def handle_get_client_name(request):
-    log_status("Get client name has been called !!")
     global client_name
     return web.json_response({"client_name" : client_name.replace("_", " ")})
-
+    
+# Obtaining the List of Connections
 async def handle_get_connections(request):
-    log_status("Get connections has been called !!")
     connectionList = await agent.admin_GET(f"/connections", )
     return web.json_response({"connectionList" : connectionList})
-
+    
+# Handling Incoming Invitation 
 async def handle_input_invitation(request):
-    log_status("Input invitation has been called !!")
     global agent
     global signing_did
 
@@ -236,25 +216,23 @@ async def handle_input_invitation(request):
         return web.json_response({"status" : True})
     except:
         return web.json_response({"status" : False})
-
+        
+# Creating and Getting Common did
 async def handle_get_signing_did(request):
-    log_status("Function for creating and getting common did has been called")
+    
     global signing_did
     global signing_vk
     global agent
 
     if signing_did==None:
         result = await agent.admin_POST("/connections/create-signing-did")
-        log_status("Signing did and verification key created")
-        log_msg("Singing did : "+str(result['signing_did']))
-        log_msg("Singing verkey : "+str(result['signing_vk']))
         signing_did=result['signing_did']
         signing_vk=result['signing_vk']
 
     return web.json_response({"signing_did" : signing_did})
-
+    
+# Signing Proposal Response
 async def handle_sign_message(request):
-    log_status("Sign message has been called !!")
     global agent
 
     data                        = await request.json()
@@ -298,7 +276,7 @@ async def main(start_port: int, show_timing: bool = False, container_name: str =
         print("Error retrieving ledger genesis transactions")
         sys.exit(1)
     try:
-        log_status("Provision an agent and wallet, get back configuration details")
+        # Provision an agent and wallet, get back configuration details
         label=container_name
         client_name=label
         agent = ClientAgent(
@@ -308,8 +286,7 @@ async def main(start_port: int, show_timing: bool = False, container_name: str =
         # await agent.register_did()
         with log_timer("Startup duration:"):
             await agent.start_process()
-        log_msg("Admin url is at:", agent.admin_url)
-        log_msg("Endpoint url is at:", agent.endpoint)
+  
         
         app = web.Application()
         app.add_routes([
