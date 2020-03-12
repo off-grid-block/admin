@@ -22,9 +22,9 @@ class IndyVerifier(BaseVerifier):
         self.logger = logging.getLogger(__name__)
         self.wallet = wallet
 
-# ************Edited Beginning************
+# ###########################################
 # Written for improving verification of proof
-# Begin written by Ashlin, Minto, Athul Antony
+# ###########################################
     async def verify_presentation(
         self, presentation_request, presentation, schemas, credential_definitions
     ) -> bool:
@@ -53,6 +53,4 @@ class IndyVerifier(BaseVerifier):
             pass
         finally:
             return verified
-# Written for improving verification of proof
-# End written by Ashlin, Minto, Athul Antony
-# ************Edited End******************
+
