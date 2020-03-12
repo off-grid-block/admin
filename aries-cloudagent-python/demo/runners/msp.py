@@ -53,18 +53,18 @@ class MSPAgent(DemoAgent):
     @property
     def connection_ready(self):
         return self._connection_ready.done() and self._connection_ready.result()
-
+        
+    # Functions to handle connections,proof and basic messages
+    
     async def handle_connections(self, message):
         if message["connection_id"] == self.connection_id:
             if message["state"] == "active" and not self._connection_ready.done():
-                self.log("Connected")
                 self._connection_ready.set_result(True)
-
+    
     async def handle_present_proof(self, message):
         global proof_message
         global proof_event
         if message["state"] == "presentation_received":
-            log_status("Proof has been got")
             proof_message=message
             proof_event.set()
 
@@ -74,24 +74,22 @@ class MSPAgent(DemoAgent):
 async def on_startup(app: web.Application):
     """Perform webserver startup actions."""
 
+# Function to create an invitation for an agent
+
 async def handle_create_invitation(request):
     global agent
-    log_status("Create invitation has been called")
     connection = await agent.admin_POST("/connections/create-invitation")
     agent.connection_id = connection["connection_id"]
     agent._connection_ready = asyncio.Future()
-
     log_json(connection, label="Invitation response:")
     log_msg(json.dumps(connection["invitation"]), label="Invitation:", color=None)
-   
-
+  
     return web.json_response(connection["invitation"])
 
 async def handle_verify_proof(request):
     global agent
     global proof_event
     global proof_message
-    log_status("Send proof request has been called !!")
     req_attrs           = [] 
     temp_req            = None
     req_preds           = []
@@ -131,7 +129,6 @@ async def handle_verify_proof(request):
     # Checking if the issuer did is given or not
     
     if ('issuer_did_list' in data)==True:
-        log_msg("Issuer did has been given as input!!")
         issuer_did_list = data['issuer_did_list']
         for inc in range(0, len(req_attrs)):
             req_attrs[inc]['restrictions'] =  issuer_did_list
@@ -147,13 +144,12 @@ async def handle_verify_proof(request):
         "requested_predicates" : temp_req
     }
     
-    log_msg("Indy Proof Request:",indy_proof_request)
-    
     proof_request_web_request = {
         "connection_id": connection_id,
         "proof_request": indy_proof_request
     }
-
+    
+    # Sending Proof request
     try:
         await agent.admin_POST(
             "/present-proof/send-request",
@@ -167,6 +163,8 @@ async def handle_verify_proof(request):
     proof_event = asyncio.Event()
     await proof_event.wait()
     presentation_exchange_id = proof_message["presentation_exchange_id"]
+    
+    # Verifying Proof
     try:
         proof = await agent.admin_POST(
             f"/present-proof/records/{presentation_exchange_id}/"
@@ -176,7 +174,9 @@ async def handle_verify_proof(request):
         return web.json_response({
             "status"        : "Error while verifing proof",
         }) 
-
+        
+    # Return Proof Status and Attributes requested in the Proof Request
+    
     if proof["verified"]=='true':
         try:
             pres_req = proof_message["presentation_request"]
@@ -203,6 +203,8 @@ async def handle_verify_proof(request):
         return web.json_response({
             "status"        : proof["verified"],
         })   
+
+# Verification of Signature
 
 async def handle_verify_signature(request):
     global agent
@@ -270,18 +272,13 @@ async def main(start_port: int, show_timing: bool = False):
         sys.exit(1)
 
     try:
-        log_status("Provision an agent and wallet, get back configuration details")
         agent = MSPAgent(
             start_port, start_port + 1, genesis_data=genesis, timing=show_timing
         )
         await agent.listen_webhooks(start_port + 2)
-        # await agent.register_did()
 
         with log_timer("Startup duration:"):
             await agent.start_process()
-        log_msg("Admin url is at:", agent.admin_url)
-        log_msg("Endpoint url is at:", agent.endpoint)
-
         app = web.Application()
         app.add_routes([
             web.get('/create_invitation', handle_create_invitation),
