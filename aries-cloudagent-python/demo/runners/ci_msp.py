@@ -356,13 +356,16 @@ async def handle_verify_proof(request):
     if ('issuer_did_list' in data)==True:
         log_msg("Issuer did has been given as input!!")
         issuer_did_list = data['issuer_did_list']
-        for inc in range(0, len(req_attrs)):
-            did_list = []
-            for did_value in issuer_did_list:
-                did_list.append({
-                    "issuer_did" : did_value
-                })
-            req_attrs[inc]['restrictions'] =  did_list
+        if not issuer_did_list:
+            pass 
+        else:
+            for inc in range(0, len(req_attrs)):
+                did_list = []
+                for did_value in issuer_did_list:
+                    did_list.append({
+                        "issuer_did" : did_value
+                    })
+                req_attrs[inc]['restrictions'] =  did_list
 
     indy_proof_request  = {
         "name": "simple_proof",
