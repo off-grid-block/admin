@@ -11,6 +11,10 @@ import json
 import logging
 import os
 import sys
+
+import time
+import aiofile
+
 import json
 from urllib.parse import urlparse
 
@@ -87,12 +91,16 @@ class ClientAgent(DemoAgent):
         )
 
         if state == "offer_received":
+            await writeCommentToLogger("Credential offer received")
+
             log_status("#15 After receiving credential offer, send credential request")
             await self.admin_POST(
                 "/issue-credential/records/" f"{credential_exchange_id}/send-request"
             )
 
         elif state == "credential_acked":
+            await writeCommentToLogger("Credential received")
+
             self.log("Stored credential {cred_id} in wallet")
             cred_id = message["credential_id"]
             log_status(f"#18.1 Stored credential {cred_id} in wallet")
@@ -123,6 +131,8 @@ class ClientAgent(DemoAgent):
                 "#24 Query for credentials in the wallet that satisfy the proof request"
             )
 
+            await writeCommentToLogger("Proof request received")
+            
             # include self-attested attributes (not included in credentials)
             credentials_by_reft = {}
             revealed = {}
@@ -167,6 +177,9 @@ class ClientAgent(DemoAgent):
             }
 
             log_status("#26 Send the proof to X")
+
+            await writeCommentToLogger("Proof sent")
+
             await self.admin_POST(
                 (
                     "/present-proof/records/"
@@ -198,6 +211,26 @@ class ClientAgent(DemoAgent):
         # Ends here
         except:
             self.log("Received message:", message["content"])
+
+async def writeCommentToLogger(comment):
+    ts = time.gmtime()
+    timestamp = str(time.strftime("%s", ts))
+    async with aiofile.AIOFile("verifier_logger.csv", 'a+') as afp:
+        writer = aiofile.Writer(afp)
+        await writer(timestamp+","+comment+"\n")
+        await afp.fsync()
+
+async def readCommentsFromLogger(request):
+    data = []
+    async with aiofile.AIOFile("verifier_logger.csv", 'r') as afp:
+        async for line in aiofile.LineReader(afp):
+            row = line.split(",")
+            data.append({
+                "timestamp" : row[0],
+                "comment" : row[1].strip("\n")
+            })
+
+    return web.json_response({"logs" : data})
 
 async def handle_get_client_name(request):
     log_status("Get client name has been called !!")
@@ -233,8 +266,14 @@ async def handle_input_invitation(request):
         agent.connection_id = connection["connection_id"]
         log_json(connection, label="Invitation response:")
         await agent.detect_connection()
+
+        await writeCommentToLogger("Connection established with agent "+details['label'])
+
         return web.json_response({"status" : True})
     except:
+
+        await writeCommentToLogger("Connection not established with agent "+details['label'])
+
         return web.json_response({"status" : False})
 
 async def handle_get_signing_did(request):
@@ -281,8 +320,12 @@ async def handle_sign_message(request):
     })
 
     if signature['signature']=="Error while signing":
+        await writeCommentToLogger("Error while signing")
+
         return web.json_response({"status" : "Error while signing"})
     else:
+        await writeCommentToLogger("Transaction signed with did")
+
         temp                       = signature['signature'].encode('utf-8')
         temp1                      = base64.b64encode(temp).decode('iso-8859-15')
         return_data={
@@ -310,7 +353,12 @@ async def main(start_port: int, show_timing: bool = False, container_name: str =
             await agent.start_process()
         log_msg("Admin url is at:", agent.admin_url)
         log_msg("Endpoint url is at:", agent.endpoint)
-        
+
+        async with aiofile.AIOFile("client_logger.csv", 'w') as afp:
+            writer = aiofile.Writer(afp)
+            await writer("")
+            await afp.fsync()
+
         app = web.Application()
         app.add_routes([
             web.get('/get_client_name', handle_get_client_name),
@@ -318,6 +366,7 @@ async def main(start_port: int, show_timing: bool = False, container_name: str =
             web.post('/input_invitation', handle_input_invitation),
             web.post('/sign_message', handle_sign_message),
             web.get('/get_signing_did', handle_get_signing_did),
+            web.get('/readCommentsFromLogger', readCommentsFromLogger),
         ])
 
         cors = aiohttp_cors.setup(

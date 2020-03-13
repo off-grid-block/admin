@@ -1,8 +1,8 @@
-# ####################################################
-# The code contains functions to
-#       1) Communicate with the credential issuer UI
-#       2) Acts as the Msp Server
-#####################################################
+# File created for Yale research
+#     by Ashlin, Minto, Athul Antony
+# This python3 code has two functions 
+#       1) communicating with the credential issuer UI
+#       2) acting as the msp server
 
 import argparse
 import asyncio
@@ -28,7 +28,8 @@ from runners.support.utils import (
 
 LOGGER = logging.getLogger(__name__)
 
-agent           = None #This global variable is common for issuer and verifier
+#This global variable is common for issuer and verifier
+agent           = None 
 #These are the global variables of the issuer
 issue_message   = None
 temp_conn_id    = None
@@ -36,7 +37,6 @@ credDefIdList   = []
 connection_list = []
 #These are the global variables of the verifier
 proof_message   = None
-pool_handle     = None
 
 class CI_MSPAgent(DemoAgent):
     def __init__(self, http_port: int, admin_port: int, **kwargs):
@@ -64,6 +64,8 @@ class CI_MSPAgent(DemoAgent):
         global connection_list
         if message["connection_id"] == self.connection_id:
             if message["state"] == "active" and not self._connection_ready.done():
+                self.log("Connected")
+                self.log(message)
                 connection_list.append({
                     "their_label"   : message['their_label'],
                     "connection_id" : message['connection_id']
@@ -74,8 +76,7 @@ class CI_MSPAgent(DemoAgent):
                 msg= {
                     "status" : "Requesting verkey and did"
                 }
-                
-                # Putting did and verkey into the ledger
+                log_status("Putting did and verkey into the ledger")
                 await agent.admin_POST(
                     f"/connections/{self.connection_id}/send-message",
                     {"content": json.dumps(msg)},
@@ -91,6 +92,7 @@ class CI_MSPAgent(DemoAgent):
         global proof_message
         global proof_event
         if message["state"] == "presentation_received":
+            log_status("Proof has been got")
             proof_message=message
             proof_event.set()
 
@@ -116,12 +118,12 @@ class CI_MSPAgent(DemoAgent):
 # ======================================================================
 # ======================================================================
 
-# Creating Invitation for Agent
 async def handle_create_invitation(request):
     global agent
     connection = await agent.admin_POST("/connections/create-invitation")
     agent._connection_ready=asyncio.Future()
     agent.connection_id = connection["connection_id"]
+    log_status("Invitation has been created !!")
     return web.json_response(connection["invitation"])
 
 # ======================================================================
@@ -132,24 +134,18 @@ async def handle_create_invitation(request):
 # ======================================================================
 # ======================================================================
 
-
-# Obtaining the Schema and Credential Definition
 async def handle_create_schema_credential_definition(request):
     global agent
     global credDefIdList
     data                = await request.json()
-    
     # Check if data is empty or has the values
     if "schema_name" not in data:
         return web.json_response({"status" : "Schema name needed"})
-        
     if "attributes" not in data:
         return web.json_response({"status" : "Attributes needed"})
-        
     # Schema name and attributes input validation
     if data['schema_name']=='' or data['schema_name']==None:
         return web.json_response({"status" : "Enter a valid schema name"})
-        
     if data['attributes']=='' or data['attributes']==None:
         return web.json_response({"status" : "Enter valid attibutes"})
 
@@ -169,6 +165,10 @@ async def handle_create_schema_credential_definition(request):
         schema_name, version, attr_list
     )
 
+    log_msg("schema has been created !!")
+    log_msg("Schema and Credential definition has been created !!")
+    log_msg("Schema id : ", schema_id)
+    log_msg("Credential definition id : ", credential_definition_id)
 
     credDefIdList.append({
         "schema_name" : schema_name,
@@ -181,7 +181,6 @@ async def handle_create_schema_credential_definition(request):
         "credential_definition_id" : credential_definition_id
     })
 
-# Generating the Credential Offer
 async def handle_send_credential_offer(request):
     global agent
     global temp_conn_id
@@ -191,20 +190,15 @@ async def handle_send_credential_offer(request):
     # Check if data is empty
     if 'credential_definition_id' not in data:
         return web.json_response({"status" : "Credential definition id needed"})
-        
     if 'attr_data' not in data:
         return web.json_response({"status" : "Attribute data needed"})
-        
     if 'connection_id' not in data:
         return web.json_response({"status" : "Connection id needed"})
-        
     # Credential definition id, Attributes, Connection id input validation
     if data['credential_definition_id']=='' or data['credential_definition_id']==None:
         return web.json_response({"status" : "Enter a valid credential definition id"})
-        
     if data['attr_data']=='' or data['attr_data']==None:
         return web.json_response({"status" : "Enter valid attibutes"})
-        
     if data['connection_id']=='' or data['connection_id']==None:
         return web.json_response({"status" : "Enter a valid connection id"})
 
@@ -233,7 +227,6 @@ async def handle_send_credential_offer(request):
 
     return web.json_response({"status" : True})
 
-# Issuing the Credentials 
 async def handle_issue_credential(request):
     global agent
     global issue_message
@@ -263,6 +256,9 @@ async def handle_issue_credential(request):
                 "credential_preview": cred_preview,
             },
         )
+        log_status("Credential has been issued!!")
+        log_msg(res['credential'])
+
         return web.json_response({
             "status" : True
             }
@@ -297,36 +293,49 @@ async def putKeyToLedger(signing_did:str=None, signing_vk:str=None):
 # ======================================================================
 # ======================================================================
 
-# Send proof request
 async def handle_verify_proof(request):
     global agent
     global proof_event
     global proof_message
-    global pool_handle
 
-    # This is the starting section for getting  the pool handle
-    pool_data = await agent.admin_POST("/connections/open-pool", {
-        "pool_handle" : pool_handle
-    })
-
-
+    log_status("Send proof request has been called !!")
     req_attrs           = [] 
     temp_req            = None
     req_preds           = []
     attributes_asked    = {}
     data                = await request.json()
 
-    #Check if any attribute not there.
-    for element in ['proof_attr','connection_id']:
-        if element not in data:
-            return web.json_response({"status" : "Attribute missing"})
-            
-    #Check if any attribute has not value.
-    if (data['proof_attr']==None or data['proof_attr']=='') or (data['connection_id']==None or data['connection_id']==''):
-        return web.json_response({"status" : "Enter valid details"})
+    #Check if any proof_attr not there.
+    if 'proof_attr' not in data:
+        return web.json_response({"status" : "Attribute missing"})
+    if data['proof_attr']==None or data['proof_attr']=='':
+        return web.json_response({"status" : "Enter valid proof_attr"})
+
+    #Check if connection id or their_did is available or not -- starts here
+    if 'connection_id' in data:
+        log_status("Connection id available!!")
+        if (data['connection_id']!=None and data['connection_id']!=''):
+            connection_id       = data['connection_id']
+    elif 'their_did' in data:
+        log_status("Their did available!!")
+        if (data['their_did']!=None and data['their_did']!=''):
+            print("##################################")
+
+            print("##################################")
+            res = await agent.admin_GET(f"/connections", 
+                params = {
+                    "their_did" : data['their_did']
+                })
+            if res!=[]:
+                connection_id = res[0]['connection_id']
+            else:
+                return web.json_response({"status" : "Invalid their did"})
+    else:
+        log_status("Both not available!!")
+        return web.json_response({"status" : "Enter valid did or connection id"})
+    #Check if connection id or their_did is available or not -- ends here
 
     proof_attr          = [element.strip(' ') for element in data['proof_attr'].split(",")]
-    connection_id       = data['connection_id']
 
     for item in proof_attr:
         req_attrs.append(
@@ -335,7 +344,7 @@ async def handle_verify_proof(request):
             }
         )
 
-    # Checking if the predicate is given or not
+    # Checking if prdicate is given or not
     if ('req_predicate' not in data)==True:
         temp_req = {}
     elif data['req_predicate']==None or data['req_predicate']=='' or (not data['req_predicate']):
@@ -343,11 +352,17 @@ async def handle_verify_proof(request):
     else:
         temp_req = { 'predicate1_referent' : data['req_predicate'] }
 
-    # Checking if the Issuer DID is given or not
+    # Cheching if issuer did given or not
     if ('issuer_did_list' in data)==True:
+        log_msg("Issuer did has been given as input!!")
         issuer_did_list = data['issuer_did_list']
         for inc in range(0, len(req_attrs)):
-            req_attrs[inc]['restrictions'] =  issuer_did_list
+            did_list = []
+            for did_value in issuer_did_list:
+                did_list.append({
+                    "issuer_did" : did_value
+                })
+            req_attrs[inc]['restrictions'] =  did_list
 
     indy_proof_request  = {
         "name": "simple_proof",
@@ -359,6 +374,14 @@ async def handle_verify_proof(request):
         },
         "requested_predicates" : temp_req
     }
+ 
+    log_msg("++++++++++++++++++++++++++++++++++++++++++")
+    log_msg("++++++++++++++++++++++++++++++++++++++++++")
+    log_msg("++++++++++++++++++++++++++++++++++++++++++")
+    log_msg(indy_proof_request)
+    log_msg("++++++++++++++++++++++++++++++++++++++++++")
+    log_msg("++++++++++++++++++++++++++++++++++++++++++")
+    log_msg("++++++++++++++++++++++++++++++++++++++++++")
 
     proof_request_web_request = {
         "connection_id": connection_id,
@@ -378,7 +401,7 @@ async def handle_verify_proof(request):
     proof_event = asyncio.Event()
     await proof_event.wait()
 
-    # Verification of Proof 
+    log_status("Verification of proof has been called !!")
 
     presentation_exchange_id = proof_message["presentation_exchange_id"]
     try:
@@ -416,13 +439,10 @@ async def handle_verify_proof(request):
     else:
         return web.json_response({
             "status"        : proof["verified"],
-        })
-        
-# Verification of Signature
+        })   
+
 async def handle_verify_signature(request):
     global agent
-    global pool_handle
-    # This is the ending section for getting  the pool handle
 
     data            = await request.json()
     resp            = {}
@@ -431,7 +451,6 @@ async def handle_verify_signature(request):
     for element in ['message','their_did','signature']:
         if element not in data:
             return web.json_response({"status" : "Attribute missing"})
-            
     #Check if any attribute has not value.
     if (data['message']==None or data['message']=='') or (data['their_did']==None or data['their_did']=='') or (data['signature']==None or data['signature']==''):
         return web.json_response({"status" : "Enter valid details"})
@@ -440,20 +459,26 @@ async def handle_verify_signature(request):
     their_did       = data['their_did']
     signature       = data['signature']
 
+    log_msg("message : "+message)
+    log_msg("their_did : "+their_did)
+    log_msg("signature : "+signature)
     try:
         temp=signature.encode('iso-8859-15')
         temp1=base64.b64decode(temp)
         signature=temp1.decode('utf-8')
     except:
         return web.json_response({"status" : "Invalid signature"})
-   
-    # Verify the transaction proposal
-    verify = await agent.admin_POST("/connections/verify-transaction", {
-        "message" :  message,
-        "their_did" : their_did,
-        "signature" : signature,
-        "pool_handle" : pool_handle
-    })
+
+    while True:
+        verify = await agent.admin_POST("/connections/verify-transaction", {
+            "message" :  message,
+            "their_did" : their_did,
+            "signature" : signature
+        })
+        if verify['status']!='operation not complete':
+            break
+        else:
+            log_status("Still waiting for pool to be closed!!")
 
     if verify['status']=='True':
         res = await agent.admin_GET(f"/connections", 
@@ -468,9 +493,9 @@ async def handle_verify_signature(request):
     else:
         resp['status']="not verified"
 
+    log_status("The status : "+verify['status'])
+
     return web.json_response(resp)
-
-
 
 async def main(start_port: int, show_timing: bool = False):
     global agent
@@ -487,19 +512,20 @@ async def main(start_port: int, show_timing: bool = False):
         await agent.register_did()
         with log_timer("Startup duration:"):
             await agent.start_process()
-
+        log_msg("Admin url is at:", agent.admin_url)
+        log_msg("Endpoint url is at:", agent.endpoint)
 
         app = web.Application()
 
         app.add_routes([
-            # These are api's for ci
+            # These are api's for ci and msp
             web.get('/create_invitation', handle_create_invitation),
+            # These are api's for ci
             web.post('/create_schema_cred_def', handle_create_schema_credential_definition),
             web.post('/send_credential_offer', handle_send_credential_offer),
             web.get('/issue_credential', handle_issue_credential),
             web.get('/get_connection_list', handle_get_connection_list),
             web.get('/get_cred_def_list', handle_get_cred_def_list),
-            
             #These are the api's for msp
             web.post('/verify_signature', handle_verify_signature),
             web.post('/verify_proof', handle_verify_proof),
@@ -538,7 +564,6 @@ if __name__ == "__main__":
         web.run_app(main(args.port, args.timing), host='0.0.0.0', port=(args.port+7))
     except KeyboardInterrupt:
         os._exit(1)
-
 
 
 

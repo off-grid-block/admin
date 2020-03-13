@@ -6,6 +6,8 @@
 import argparse
 import asyncio
 import json
+import time
+import aiofile
 import random
 import logging
 import os
@@ -99,12 +101,35 @@ class CredentialIssuerAgent(DemoAgent):
         # Putting the verkey using did into the ledger
         # Ends here
 
+async def writeCommentToLogger(comment):
+    ts = time.gmtime()
+    timestamp = str(time.strftime("%s", ts))
+    async with aiofile.AIOFile("issuer_logger.csv", 'a+') as afp:
+        writer = aiofile.Writer(afp)
+        await writer(timestamp+","+comment+"\n")
+        await afp.fsync()
+
+async def readCommentsFromLogger(request):
+    data = []
+    async with aiofile.AIOFile("issuer_logger.csv", 'r') as afp:
+        async for line in aiofile.LineReader(afp):
+            row = line.split(",")
+            data.append({
+                "timestamp" : row[0],
+                "comment" : row[1].strip("\n")
+            })
+
+    return web.json_response({"logs" : data})
+
 async def handle_create_invitation(request):
     global agent
     connection = await agent.admin_POST("/connections/create-invitation")
     agent._connection_ready=asyncio.Future()
     agent.connection_id = connection["connection_id"]
     log_msg("Invitation has been created !!")
+
+    await writeCommentToLogger("Invitation created")
+
     return web.json_response(connection["invitation"])
 
 async def handle_create_schema_credential_definition(request):
@@ -148,6 +173,8 @@ async def handle_create_schema_credential_definition(request):
         "credential_definition_id" : credential_definition_id,
         "attr_list" : attr_list,
     })
+
+    await writeCommentToLogger("Schema and credential definition created")
 
     return web.json_response({
         "schema_id"                : schema_id,
@@ -198,6 +225,8 @@ async def handle_send_credential_offer(request):
     }
     await agent.admin_POST("/issue-credential/send-offer", offer_request)
 
+    await writeCommentToLogger("Credential offer sent")
+
     return web.json_response({"status" : True})
 
 async def handle_issue_credential(request):
@@ -231,6 +260,8 @@ async def handle_issue_credential(request):
         )
         log_status("Credential has been issued!!")
         log_msg(res['credential'])
+
+        await writeCommentToLogger("Credential issued")
 
         return web.json_response({
             "status" : True
@@ -269,8 +300,13 @@ async def putKeyToLedger(signing_did:str=None, signing_vk:str=None):
         log_status("Verification key has been put into the ledger!!")
         log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
         log_status("++++++++++++++++++++++++++++++++++++++++++++++++++++")
+
+        await writeCommentToLogger("Verification key has been put into the ledger")
+
         return web.json_response({"status" : True})
     else:
+        await writeCommentToLogger("Error while putting verification key into the ledger")
+
         return web.json_response({"status" : False})
 
 async def main(start_port: int, show_timing: bool = False):
@@ -291,8 +327,12 @@ async def main(start_port: int, show_timing: bool = False):
         log_msg("Admin url is at:", agent.admin_url)
         log_msg("Endpoint url is at:", agent.endpoint)
 
-        app = web.Application()
+        async with aiofile.AIOFile("issuer_logger.csv", 'w') as afp:
+            writer = aiofile.Writer(afp)
+            await writer("")
+            await afp.fsync()
 
+        app = web.Application()
         app.add_routes([
             web.get('/create_invitation', handle_create_invitation),
             web.post('/create_schema_cred_def', handle_create_schema_credential_definition),
@@ -300,6 +340,7 @@ async def main(start_port: int, show_timing: bool = False):
             web.get('/issue_credential', handle_issue_credential),
             web.get('/get_connection_list', handle_get_connection_list),
             web.get('/get_cred_def_list', handle_get_cred_def_list),
+            web.get('/readCommentsFromLogger', readCommentsFromLogger),
         ])
 
         cors = aiohttp_cors.setup(

@@ -7,6 +7,8 @@ import base64
 import argparse
 import asyncio
 import json
+import time
+import aiofile
 import logging
 import os
 import sys
@@ -73,18 +75,38 @@ class MSPAgent(DemoAgent):
 async def on_startup(app: web.Application):
     """Perform webserver startup actions."""
 
+async def writeCommentToLogger(comment):
+    ts = time.gmtime()
+    timestamp = str(time.strftime("%s", ts))
+    async with aiofile.AIOFile("verifier_logger.csv", 'a+') as afp:
+        writer = aiofile.Writer(afp)
+        await writer(timestamp+","+comment+"\n")
+        await afp.fsync()
+
+async def readCommentsFromLogger(request):
+    data = []
+    async with aiofile.AIOFile("verifier_logger.csv", 'r') as afp:
+        async for line in aiofile.LineReader(afp):
+            row = line.split(",")
+            data.append({
+                "timestamp" : row[0],
+                "comment" : row[1].strip("\n")
+            })
+
+    return web.json_response({"logs" : data})
+
 async def handle_create_invitation(request):
     global agent
     log_status("Create invitation has been called !!")
-
     connection = await agent.admin_POST("/connections/create-invitation")
     agent.connection_id = connection["connection_id"]
     agent._connection_ready = asyncio.Future()
-
     log_json(connection, label="Invitation response:")
     log_msg("*****************")
     log_msg(json.dumps(connection["invitation"]), label="Invitation:", color=None)
     log_msg("*****************")
+
+    await writeCommentToLogger("Invitation created")
 
     return web.json_response(connection["invitation"])
 
@@ -123,6 +145,8 @@ async def handle_verify_proof(request):
                 })
             if res!=[]:
                 connection_id = res[0]['connection_id']
+            else:
+                return web.json_response({"status" : "Invalid their did"})
     else:
         log_status("Both not available!!")
         return web.json_response({"status" : "Enter valid did or connection id"})
@@ -181,6 +205,8 @@ async def handle_verify_proof(request):
         "proof_request": indy_proof_request
     }
 
+    await writeCommentToLogger("Proof request sent to client")
+
     try:
         await agent.admin_POST(
             "/present-proof/send-request",
@@ -198,6 +224,8 @@ async def handle_verify_proof(request):
 
     presentation_exchange_id = proof_message["presentation_exchange_id"]
     try:
+        await writeCommentToLogger("Proof got from client")
+
         proof = await agent.admin_POST(
             f"/present-proof/records/{presentation_exchange_id}/"
             "verify-presentation"
@@ -221,15 +249,21 @@ async def handle_verify_proof(request):
                 agent.log(id_spec['schema_id'])
                 agent.log(id_spec['cred_def_id'])
             
+            await writeCommentToLogger("Proof verified")
+
             return web.json_response({
                 "status"        : proof["verified"],
                 "attributes"    : attributes_asked,
             })
         except:
+            await writeCommentToLogger("incorrect Proof")
+
             return web.json_response({
                 "status"        : 'False',
             }) 
     else:
+        await writeCommentToLogger("incorrect Proof")
+
         return web.json_response({
             "status"        : proof["verified"],
         })   
@@ -274,6 +308,8 @@ async def handle_verify_signature(request):
             log_status("Still waiting for pool to be closed!!")
 
     if verify['status']=='True':
+        await writeCommentToLogger("Signature verified")
+
         res = await agent.admin_GET(f"/connections", 
             params = {
                 "their_did" : their_did
@@ -284,6 +320,8 @@ async def handle_verify_signature(request):
         else:
            resp['status']="Signature verified but not connected to the client agent" 
     else:
+        await writeCommentToLogger("Incorrect Signature")
+
         resp['status']="not verified"
 
     log_status("The status : "+verify['status'])
@@ -303,18 +341,23 @@ async def main(start_port: int, show_timing: bool = False):
             start_port, start_port + 1, genesis_data=genesis, timing=show_timing
         )
         await agent.listen_webhooks(start_port + 2)
-        # await agent.register_did()
 
         with log_timer("Startup duration:"):
             await agent.start_process()
         log_msg("Admin url is at:", agent.admin_url)
         log_msg("Endpoint url is at:", agent.endpoint)
 
+        async with aiofile.AIOFile("verifier_logger.csv", 'w') as afp:
+            writer = aiofile.Writer(afp)
+            await writer("")
+            await afp.fsync()
+
         app = web.Application()
         app.add_routes([
             web.get('/create_invitation', handle_create_invitation),
             web.post('/verify_signature', handle_verify_signature),
             web.post('/verify_proof', handle_verify_proof),
+            web.get('/readCommentsFromLogger', readCommentsFromLogger),
         ])
 
         cors = aiohttp_cors.setup(

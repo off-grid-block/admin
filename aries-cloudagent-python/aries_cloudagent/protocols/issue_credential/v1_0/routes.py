@@ -705,4 +705,3 @@ async def register(app: web.Application):
             ),
         ]
     )
-

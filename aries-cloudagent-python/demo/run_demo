@@ -95,5 +95,5 @@ else
 		faber-alice-demo $AGENT_MODULE --port $AGENT_PORT $@
 fi
 # ************Edited End******************
-
+# -v /"$(pwd)"/.indy_client/:/home/indy/.indy_client/ \
 

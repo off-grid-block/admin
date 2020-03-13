@@ -300,10 +300,10 @@ async def connections_receive_invitation(request: web.BaseRequest):
         The resulting connection record details
 
     """
-    # ##################################################
-    # This code is for using signing did as pairwise did
+    # ************Edited Beginning***********
+    # This code is for signing did as pairwise did
     signing_did = None
-    
+    # ************Edited End******************
     context = request.app["request_context"]
     if context.settings.get("admin.no_receive_invites"):
         raise web.HTTPForbidden()
@@ -311,10 +311,11 @@ async def connections_receive_invitation(request: web.BaseRequest):
 
     data = await request.json()
     invitation_json = data['invitation']
-   
+    # ************Edited Beginning***********
+    # This code is for signing did as pairwise did
     if 'signing_did' in data:
         signing_did = data['signing_did']
-    # ##################################################
+    # ************Edited End******************
     invitation = ConnectionInvitation.deserialize(invitation_json)
 
     accept = request.query.get("accept")
@@ -483,8 +484,9 @@ async def connections_create_static(request: web.BaseRequest):
 
     return web.json_response(result)
 
-
-# Placing Verification key into the ledger
+# ************Edited Beginning************
+# Written for putting verification key into ledger
+# Begin written by Ashlin, Minto, Athul Antony
 async def putVerificationToLedger(request: web.BaseRequest):
     context                   = request.app['request_context']
 
@@ -503,8 +505,13 @@ async def putVerificationToLedger(request: web.BaseRequest):
     await indy.pool.close_pool_ledger(pool_handle)
     
     return web.json_response({"status" : "true"})
+# Written for putting verification key into ledger
+# End written by Ashlin, Minto, Athul Antony
+# ************Edited End******************
 
-# Creating Signing DID
+# ************Edited Beginning************
+# Written for signature and verification
+# Begin written by Ashlin, Minto, Athul Antony
 async def createSigningDid(request: web.BaseRequest):
     context                   = request.app['request_context']
     wallet: BaseWallet        = await context.inject(BaseWallet, required=False)
@@ -514,27 +521,14 @@ async def createSigningDid(request: web.BaseRequest):
         'signing_did' : signing_did,
         'signing_vk'   : signing_vk,
     })
+# Written for signature and verification
+# End written by Ashlin, Minto, Athul Antony
+# ************Edited End******************
 
 
-# Obtaining the pool handle
-async def openPoolInLedger(request: web.BaseRequest):
-    context                         = request.app['request_context']
-    pools                           =   await indy.pool.list_pools()
-    try:
-        await indy.pool.set_protocol_version(2)
-        temp                        = await indy.pool.open_pool_ledger(pools[0]["pool"], "{}")
-        await indy.pool.close_pool_ledger(temp)
-    except:
-        content                     = await request.json()
-        pool_handle                 = content["pool_handle"]
-        await indy.pool.close_pool_ledger(pool_handle)
-    finally:
-        return web.json_response({
-            'pool_handle' : pool_handle
-        })
-
-
-# Signing the transaction proposal
+# ************Edited Beginning************
+# Written for signature and verification
+# Begin written by Ashlin, Minto, Athul Antony
 async def getSignedTransaction(request: web.BaseRequest):
     info_json           = None
     info                = None
@@ -561,10 +555,17 @@ async def getSignedTransaction(request: web.BaseRequest):
 
     return web.json_response({'signature' : result})
 
-# Verify the Signed transaction proposal
 async def verifySignedTransaction(request: web.BaseRequest):
     context                     = request.app['request_context']
-    
+    #=================Getting pool handle!!=================
+    pools                       =   await indy.pool.list_pools()
+    await indy.pool.set_protocol_version(2)
+    try:
+        pool_handle                 = await indy.pool.open_pool_ledger(pools[0]["pool"], "{}")
+    except:
+        return web.json_response({'status' : "operation not complete"}) 
+    #=================Pool handle has been got!!=================
+
     info_json                   = None
     their_key                   = None
     signature                   = "signature"
@@ -573,17 +574,6 @@ async def verifySignedTransaction(request: web.BaseRequest):
     wallet: BaseWallet          = await context.inject(BaseWallet, required=False)
     content                     = await request.json()
     their_did                   = content["their_did"]
-    pool_handle                 = content["pool_handle"] #newly added code
-
-    # Getting pool handle
-    try:
-
-        await indy.pool.close_pool_ledger(pool_handle)
-    except:
-        pools                       =   await indy.pool.list_pools()
-        await indy.pool.set_protocol_version(2)
-        pool_handle                 = await indy.pool.open_pool_ledger(pools[0]["pool"], "{}")
-  
 
     message                     = bytes(content['message'], 'utf-8')
     try:
@@ -593,6 +583,7 @@ async def verifySignedTransaction(request: web.BaseRequest):
 
     try:
         their_key               = await indy.did.key_for_did(pool_handle, wallet.handle, their_did)
+        print("verkey : "+their_key)
         try:
             result = str(await indy.crypto.crypto_verify(their_key, message, signature))
         except IndyError as err:
@@ -604,7 +595,9 @@ async def verifySignedTransaction(request: web.BaseRequest):
     await indy.pool.close_pool_ledger(pool_handle)
 
     return web.json_response({'status' : result})  
-
+# Written for signature and verification
+# End written by Ashlin, Minto, Athul Antony
+# ************Edited End******************
 
 async def register(app: web.Application):
     """Register routes."""
@@ -614,11 +607,16 @@ async def register(app: web.Application):
             web.get("/connections", connections_list),
             web.get("/connections/{id}", connections_retrieve),
             web.post("/connections/create-invitation", connections_create_invitation),
-            web.post("/connections/open-pool", openPoolInLedger),
+            # ************Edited Beginning************
+            # Written for signature and verification
+            # Begin written by Ashlin, Minto, Athul Antony
             web.post("/connections/create-signing-did", createSigningDid),
             web.post("/connections/put-key-ledger", putVerificationToLedger),
             web.post("/connections/sign-transaction", getSignedTransaction),
             web.post("/connections/verify-transaction", verifySignedTransaction),
+            # Written for signature and verification
+            # End written by Ashlin, Minto, Athul Antony
+            # ************Edited End******************
             web.post("/connections/receive-invitation", connections_receive_invitation),
             web.post(
                 "/connections/{id}/accept-invitation", connections_accept_invitation
@@ -631,7 +629,6 @@ async def register(app: web.Application):
             web.post("/connections/{id}/remove", connections_remove),
         ]
     )
-
 
 
 

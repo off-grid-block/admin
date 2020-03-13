@@ -33,6 +33,7 @@ RUN_MODE = os.getenv("RUNMODE")
 
 GENESIS_URL = os.getenv("GENESIS_URL")
 LEDGER_URL = os.getenv("LEDGER_URL")
+
 if RUN_MODE == "docker":
     DEFAULT_INTERNAL_HOST = os.getenv("DOCKERHOST") or "host.docker.internal"
     DEFAULT_EXTERNAL_HOST = DEFAULT_INTERNAL_HOST
@@ -98,6 +99,7 @@ class DemoAgent:
         self.timing_log = timing_log
         self.postgres = DEFAULT_POSTGRES if postgres is None else postgres
         self.extra_args = extra_args
+
         if RUN_MODE == "pwd":
             self.endpoint = f"http://{self.external_host}".replace(
                 "{PORT}", str(http_port)
@@ -508,5 +510,4 @@ class DemoAgent:
 
     def reset_postgres_stats(self):
         self.wallet_stats.clear()
-
 
