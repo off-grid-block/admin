@@ -1,0 +1,49 @@
+.clientBody {
+  width : 100%;
+  /* background-color: #CC6699; */
+  height : 451px;
+}
+
+.navbarClass {
+  width : 100%;
+  background-color: darkblue;
+  height : 70px;
+
+}
+
+.clientNameClass {
+  float:right;
+  color : white;
+}
+
+.blueBorder {
+  border : 1px solid darkblue;
+  background-color: white;
+}
+
+.blueTextClass {
+  color : blue;
+}
+
+#invitation {
+  height : 400px;
+}
+
+.elementCenterClass {
+  text-align: center;
+}
+
+.textareaCenterClass {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.buttonCenterClass { 
+  position:relative;
+  left:35%;
+}
+
+.leftSpaceClass {
+  left : 0.5%;
+}

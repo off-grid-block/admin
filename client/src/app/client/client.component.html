@@ -1,0 +1,38 @@
+<div class="clientBody">
+  <div class="navbarClass">
+    <img src="assets/client-icon-blue.png" alt="No image" width=70px height=70px float=left>
+    <h4 class="clientNameClass">
+      {{ client_name }}
+    </h4>
+  </div>
+  <br>
+  <div class="container clientBody">    
+    <div class="row">
+      <div class="col-sm-6 blueBorder leftSpaceClass" id="invitation">
+        <h3 class="blueTextClass elementCenterClass">Invitation</h3>
+        <br>
+        <textarea class="textareaCenterClass" [(ngModel)]="invitation" name="invitation" cols="30" rows="10" placeholder="Copy your invitation here"></textarea>
+        <br>
+        <button type="button" class="btn btn-primary buttonCenterClass" (click)="getInvitation()">Get new invitation</button>
+        <br><br>
+        <button type="button" class="btn btn-success" (click)="getInvitationFromMsp()">Get invitation from MSP agent</button>
+        &nbsp;&nbsp;&nbsp;
+        <button type="button" class="btn btn-success" (click)="getInvitationFromIssuer()">Get invitation from Issuer agent</button>
+      </div>
+      <div class="col-sm-6">
+        <h5 class="elementCenterClass" style="color : darkslategray;">Connected agents</h5>
+        
+        <div class="elementCenterClass" *ngIf="connectionList.length<=0;else not_empty">
+          <br><br>
+          ℕ𝕠 𝕒𝕘𝕖𝕟𝕥𝕤 𝕔𝕠𝕟𝕟𝕖𝕔𝕥𝕖𝕕
+        </div>
+        <ng-template #not_empty>
+          <div class="well" *ngFor="let conn of connectionList">
+            <h6 class="elementCenterClass">{{  conn.their_label  }}</h6> 
+          </div>
+        </ng-template>
+  
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,22 @@
+<div id="heading_begin">
+  <b class="agent_name">Credential Issuer</b>
+</div>
+<br>
+<div class="container-fluid">
+  <div class="row content">
+    <div class="col-sm-3 sidenav">
+      <ul class="nav nav-pills nav-stacked">
+        <li [class.active]="selected==0" (click)="select(0)"><a routerLink="/">Invitation</a></li>
+        <li [class.active]="selected==1" (click)="select(1)"><a routerLink="/schema">Schema and Credential definition</a></li>
+        <li [class.active]="selected==2" (click)="select(2)"><a routerLink="/credential">Credential</a></li>
+      </ul><br>
+
+    </div>
+
+    <div class="col-sm-9">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>
+
+

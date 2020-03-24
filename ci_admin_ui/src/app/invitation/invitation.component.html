@@ -1,0 +1,17 @@
+<h2 style="color:blue;">Create Invitation</h2>
+<div class="text-center">
+  <button (click)="createInvitation()" class="btn btn-primary">Create Invitation</button>
+</div>
+
+<br>
+
+<div id="invitation">
+    {{ invitation }}
+</div>
+
+<br>
+
+<ngx-qrcode 
+[qrc-value] = "invitation"
+qrc-class = "aclass">
+</ngx-qrcode>
