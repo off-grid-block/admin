@@ -1,0 +1,13 @@
+<h2 style="color:blue;">Create Schema and Credential definition</h2>
+<br>
+<input type="text" class="form-control" placeholder="Enter schema name" [(ngModel)]="schema_name">
+<br>
+<input type="text" class="form-control" placeholder="Enter attributes" [(ngModel)]="attributes">
+<br>
+<button (click)="createSchemaCredDef()" class="btn btn-primary">Create schema and credential definition</button>
+<br>
+<div id="schema" *ngIf="schema_id">
+  Schema Id : {{ schema_id }}
+  <br>
+  Credential Id : {{ cred_def_id }}
+</div>
