@@ -7,7 +7,7 @@ import { Options } from 'selenium-webdriver/opera';
 })
 export class Service1Service {
   public url;
-  public ip="http://10.53.17.40:8003";
+  public ip="http://10.0.1.14:7997";
   constructor(private http : HttpClient) {
 
   }

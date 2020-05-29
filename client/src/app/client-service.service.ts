@@ -6,7 +6,7 @@ import{HttpClient} from '@angular/common/http';
 })
 export class ClientServiceService {
   public url;
-  public ip="http://10.53.17.40:8008"
+  public ip="http://10.0.1.14:8013"
   public ip2='';
   constructor(private http : HttpClient) { 
 
@@ -28,13 +28,13 @@ export class ClientServiceService {
   }
 
   getInvitationFromMsp() {
-    this.ip2="http://10.53.17.40:8003"
+    this.ip2="http://10.0.1.14:7997"
     this.url = this.ip2+"/create_invitation"
     return this.http.get(this.url); 
   }
 
   getInvitationFromIssuer() {
-    this.ip2="http://10.53.17.40:8003"
+    this.ip2="http://10.0.1.14:7997"
     this.url = this.ip2+"/create_invitation"
     return this.http.get(this.url); 
   }
